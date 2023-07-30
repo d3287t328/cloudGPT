@@ -19,15 +19,27 @@ def query_database(query_prompt: str) -> Dict[str, Any]:
     response = requests.post(url, json=data, headers=headers)
 
     if response.status_code == 200:
-        result = response.json()
-        # process the result
-        return result
+        return response.json()
     else:
         raise ValueError(f"Error: {response.status_code} : {response.content}")
 
 def aws_architecture_to_be_evaluated(main_prompt, text_prompt="write me a sqs and sns solution", cloud_watch_logs="", restart_gpt=False, vector_db=False, iteration=1):
 
-    meta_prompt = '''You are an autonomous agent called "assistant for AWS
+    messages=[]
+
+    if vector_db:   
+        chunks_response = query_database(text_prompt)
+        chunks = []
+        for result in chunks_response["results"]:
+            chunks.extend(inner_result["text"] for inner_result in result["results"])
+        messages.append(
+        map(lambda chunk: {
+            "role": "user",
+            "content": chunk
+        }, chunks))
+
+    if iteration == 1:
+        meta_prompt = '''You are an autonomous agent called "assistant for AWS
     solution architecture" which act as an python function generator.
     These functions should encapsulate all of the boto3 code needed to
     deploy on the AWS. To accomplish the goal, you must follow following rules:
@@ -50,26 +62,20 @@ def aws_architecture_to_be_evaluated(main_prompt, text_prompt="write me a sqs an
     11. Execute the proposed solution with main.
 
     '''
-    
-    messages=[]
 
-    if vector_db:   
-        chunks_response = query_database(text_prompt)
-        chunks = []
-        for result in chunks_response["results"]:
-            for inner_result in result["results"]:
-                chunks.append(inner_result["text"])
-        messages.append(
-        map(lambda chunk: {
-            "role": "user",
-            "content": chunk
-        }, chunks))
-
-    if iteration == 1:
-        messages.append({"role": "system", "content": meta_prompt})
-        messages.append({"role": "user", "content": str(text_prompt)})
+        messages.extend(
+            (
+                {"role": "system", "content": meta_prompt},
+                {"role": "user", "content": str(text_prompt)},
+            )
+        )
     else:
-        messages.append({"role": "user", "content": "Here is the error message: " + str(text_prompt) + "This is the initially posed task to accomplish: " + main_prompt + 'Additionally use the following cloud watch log messages to correct your response' + cloud_watch_logs})
+        messages.append(
+            {
+                "role": "user",
+                "content": f"Here is the error message: {str(text_prompt)}This is the initially posed task to accomplish: {main_prompt}Additionally use the following cloud watch log messages to correct your response{cloud_watch_logs}",
+            }
+        )
 
     # CALL GPT4
     response = openai.ChatCompletion.create(
@@ -85,7 +91,7 @@ def aws_architecture_to_be_evaluated(main_prompt, text_prompt="write me a sqs an
         )
 
     code_response_body=response["choices"][0]["message"]["content"].replace("python", "").replace("```","")
- 
+
     #TODO unsafe, find better way to execute the returned strings
     exec(code_response_body, globals())
 
@@ -95,7 +101,21 @@ def aws_architecture_to_be_evaluated(main_prompt, text_prompt="write me a sqs an
 
 def localstack_architecture_to_be_evaluated(main_prompt, text_prompt="write me a sqs and sns solution and test it on localstack", cloud_watch_logs="", restart_gpt=False, vector_db=False, iteration=1):
 
-    meta_prompt = '''You are an autonomous agent called "assistant for AWS
+    messages=[]
+
+    if vector_db:   
+        chunks_response = query_database(text_prompt)
+        chunks = []
+        for result in chunks_response["results"]:
+            chunks.extend(inner_result["text"] for inner_result in result["results"])
+        messages.append(
+        map(lambda chunk: {
+            "role": "user",
+            "content": chunk
+        }, chunks))
+
+    if iteration == 1:
+        meta_prompt = '''You are an autonomous agent called "assistant for AWS
     solution architecture" which act as an python function generator.
     These functions should encapsulate all of the boto3 code needed to
     deploy on the localstack. To accomplish the goal, you must follow following rules:
@@ -114,26 +134,20 @@ def localstack_architecture_to_be_evaluated(main_prompt, text_prompt="write me a
     7. Execute the proposed solution with main.
 
     '''
-    
-    messages=[]
 
-    if vector_db:   
-        chunks_response = query_database(text_prompt)
-        chunks = []
-        for result in chunks_response["results"]:
-            for inner_result in result["results"]:
-                chunks.append(inner_result["text"])
-        messages.append(
-        map(lambda chunk: {
-            "role": "user",
-            "content": chunk
-        }, chunks))
-
-    if iteration == 1:
-        messages.append({"role": "system", "content": meta_prompt})
-        messages.append({"role": "user", "content": str(text_prompt)})
+        messages.extend(
+            (
+                {"role": "system", "content": meta_prompt},
+                {"role": "user", "content": str(text_prompt)},
+            )
+        )
     else:
-        messages.append({"role": "user", "content": "Here is the error message: " + str(text_prompt) + "This is the initially posed task to accomplish: " + main_prompt})
+        messages.append(
+            {
+                "role": "user",
+                "content": f"Here is the error message: {str(text_prompt)}This is the initially posed task to accomplish: {main_prompt}",
+            }
+        )
 
     # CALL GPT4
     response = openai.ChatCompletion.create(
@@ -149,7 +163,7 @@ def localstack_architecture_to_be_evaluated(main_prompt, text_prompt="write me a
         )
 
     code_response_body=response["choices"][0]["message"]["content"].replace("python", "").replace("```","")
- 
+
     #TODO unsafe, find better way to execute the returned strings
     exec(code_response_body, globals())
 

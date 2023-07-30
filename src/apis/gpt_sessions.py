@@ -67,7 +67,7 @@ class Session:
     @staticmethod
     def is_gpt4_available():
         try:
-            for i in range(5):
+            for _ in range(5):
                 try:
                     openai.ChatCompletion.create(
                         model="gpt-4",
@@ -76,7 +76,6 @@ class Session:
                     break
                 except RateLimitError:
                     sleep(1)
-                    continue
             return True
         except openai.error.InvalidRequestError:
             return False
@@ -160,7 +159,7 @@ class _Conversation:
         if os.environ["VERBOSE"].lower() == "true":
             print()
         self.cost_callback(
-            sum([len(m.content) for m in self.messages]),
+            sum(len(m.content) for m in self.messages),
             len(response.content),
             self.print_costs,
         )
