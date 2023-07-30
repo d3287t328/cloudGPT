@@ -93,9 +93,16 @@ def test_data_transfer(bucket_name, instance_name, master_username, master_passw
 
 def deploy_solution(bucket_name, instance_name, master_username, master_password):
     unique_id = str(uuid.uuid4())
-    create_s3_bucket(bucket_name + '-' + unique_id)
-    create_rds_instance(instance_name + '-' + unique_id, master_username, master_password)
-    test_data_transfer(bucket_name + '-' + unique_id, instance_name + '-' + unique_id, master_username, master_password)
+    create_s3_bucket(f'{bucket_name}-{unique_id}')
+    create_rds_instance(
+        f'{instance_name}-{unique_id}', master_username, master_password
+    )
+    test_data_transfer(
+        f'{bucket_name}-{unique_id}',
+        f'{instance_name}-{unique_id}',
+        master_username,
+        master_password,
+    )
 
 
 if __name__ == '__main__':
